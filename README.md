@@ -21,11 +21,10 @@ Example `docker-compose.yml`:
 ```yaml
 elasticsearch_exporter:
     image: justwatch/elasticsearch_exporter:1.1.0
-    command:
-     - '--es.uri=http://elasticsearch:9200'
+    command: '--es.uri=http://elasticsearch:9200'
     restart: always
     ports:
-    - "127.0.0.1:9114:9114"
+      - "127.0.0.1:9114:9114"
 ```
 
 #### Kubernetes
@@ -62,7 +61,17 @@ elasticsearch_exporter --help
 
 Commandline parameters start with a single `-` for versions less than `1.1.0rc1`. 
 For versions greater than `1.1.0rc1`, commandline parameters are specified with `--`. Also, all commandline parameters can be provided as environment variables. The environment variable name is derived from the parameter name
-by replacing `.` and `-` with `_` and upper-casing the parameter name.
+by replacing `.` and `-` with `_` and upper-casing the parameter name. Example: `es.client-private-key` -> `ES_CLIENT_PRIVATE_KEY`
+
+Setting a variable to true is done by just adding the variable. Example for `docker-compose.yml`:
+```yaml
+elasticsearch_exporter:
+    image: justwatch/elasticsearch_exporter:1.1.0
+    command: '--es.uri=http://elasticsearch:9200 --es.indices --es.shards'
+    restart: always
+    ports:
+      - "127.0.0.1:9114:9114"
+```
 
 #### Elasticsearch 7.x security privileges
 
