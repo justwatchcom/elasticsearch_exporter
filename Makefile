@@ -64,7 +64,7 @@ docker:
 
 promu:
 	@GOOS=$(shell uname -s | tr A-Z a-z) \
-	        GOARCH=$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))) \
+	        GOARCH=$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))) GO111MODULE=on \
 	        $(GO) get -u github.com/prometheus/promu
 
 gometalinter: $(GOLINTER)

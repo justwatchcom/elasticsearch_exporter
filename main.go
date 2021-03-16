@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"context"
@@ -77,6 +78,9 @@ func main() {
 		logOutput = kingpin.Flag("log.output",
 			"Sets the log output. Valid outputs are stdout and stderr").
 			Default("stdout").Envar("LOG_OUTPUT").String()
+		nodeAttributes = kingpin.Flag("node.attributes",
+			"Node attributes to add as labels").
+			Default("").Envar("NODE_ATTRIBUTES").String()
 	)
 
 	kingpin.Version(version.Print(Name))
@@ -111,9 +115,13 @@ func main() {
 
 	// cluster info retriever
 	clusterInfoRetriever := clusterinfo.New(logger, httpClient, esURL, *esClusterInfoInterval)
+	nodeAttributesList := []string{}
+	if *nodeAttributes != "" {
+		nodeAttributesList = strings.Split(*nodeAttributes, ",")
+	}
 
 	prometheus.MustRegister(collector.NewClusterHealth(logger, httpClient, esURL))
-	prometheus.MustRegister(collector.NewNodes(logger, httpClient, esURL, *esAllNodes, *esNode))
+	prometheus.MustRegister(collector.NewNodes(logger, httpClient, esURL, *esAllNodes, *esNode, nodeAttributesList))
 
 	if *esExportIndices || *esExportShards {
 		iC := collector.NewIndices(logger, httpClient, esURL, *esExportShards)

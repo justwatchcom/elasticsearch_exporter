@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -48,6 +49,20 @@ func getRoles(node NodeStatsNodeResponse) map[string]bool {
 	return roles
 }
 
+func getAttributesValues(node NodeStatsNodeResponse, attrs []string) []string {
+	attributesValues := []string{}
+	for _, attributeName := range attrs {
+		trimmedAttr := strings.TrimPrefix(attributeName, "es_attr_")
+		// Go over the node attributes and search for the requested attributes
+		if _, ok := node.Attributes[trimmedAttr]; ok {
+			attributesValues = append(attributesValues, node.Attributes[trimmedAttr])
+		} else {
+			attributesValues = append(attributesValues, "")
+		}
+	}
+	return attributesValues
+}
+
 func createRoleMetric(role string) *nodeMetric {
 	return &nodeMetric{
 		Type: prometheus.GaugeValue,
@@ -69,9 +84,34 @@ func createRoleMetric(role string) *nodeMetric {
 	}
 }
 
+func createAttributeMetric(attr string, attrValue string, present bool) *nodeMetric {
+	return &nodeMetric{
+		Type: prometheus.GaugeValue,
+		Desc: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "nodes", "attributes"),
+			"Node attributes",
+			defaultRoleLabels, prometheus.Labels{attr: attrValue},
+		),
+		Value: func(node NodeStatsNodeResponse) float64 {
+			if present {
+				return 1.0
+			}
+			return 0
+		},
+		Labels: func(cluster string, node NodeStatsNodeResponse) []string {
+			return []string{
+				cluster,
+				node.Host,
+				node.Name,
+			}
+		},
+	}
+}
+
 var (
 	defaultNodeLabels               = []string{"cluster", "host", "name", "es_master_node", "es_data_node", "es_ingest_node", "es_client_node"}
 	defaultRoleLabels               = []string{"cluster", "host", "name"}
+	extendedNodeLabels              = []string{}
 	defaultThreadPoolLabels         = append(defaultNodeLabels, "type")
 	defaultBreakerLabels            = append(defaultNodeLabels, "breaker")
 	defaultFilesystemDataLabels     = append(defaultNodeLabels, "mount", "path")
@@ -79,8 +119,9 @@ var (
 	defaultCacheLabels              = append(defaultNodeLabels, "cache")
 
 	defaultNodeLabelValues = func(cluster string, node NodeStatsNodeResponse) []string {
+		attrsValues := getAttributesValues(node, extendedNodeLabels)
 		roles := getRoles(node)
-		return []string{
+		defaultValues := []string{
 			cluster,
 			node.Host,
 			node.Name,
@@ -89,7 +130,10 @@ var (
 			fmt.Sprintf("%t", roles["ingest"]),
 			fmt.Sprintf("%t", roles["client"]),
 		}
+		returnValue := append(attrsValues, defaultValues...)
+		return returnValue
 	}
+
 	defaultThreadPoolLabelValues = func(cluster string, node NodeStatsNodeResponse, pool string) []string {
 		return append(defaultNodeLabelValues(cluster, node), pool)
 	}
@@ -169,7 +213,18 @@ type Nodes struct {
 }
 
 // NewNodes defines Nodes Prometheus metrics
-func NewNodes(logger log.Logger, client *http.Client, url *url.URL, all bool, node string) *Nodes {
+func NewNodes(logger log.Logger, client *http.Client, url *url.URL, all bool, node string, nodeAttributes []string) *Nodes {
+
+	for _, attr := range nodeAttributes {
+		extendedNodeLabels = append(extendedNodeLabels, fmt.Sprintf("es_attr_%s", attr))
+	}
+	defaultNodeLabels = append(extendedNodeLabels, defaultNodeLabels...)
+	defaultThreadPoolLabels = append(extendedNodeLabels, defaultThreadPoolLabels...)
+	defaultBreakerLabels = append(extendedNodeLabels, defaultBreakerLabels...)
+	defaultFilesystemDataLabels = append(extendedNodeLabels, defaultFilesystemDataLabels...)
+	defaultFilesystemIODeviceLabels = append(extendedNodeLabels, defaultFilesystemIODeviceLabels...)
+	defaultCacheLabels = append(extendedNodeLabels, defaultCacheLabels...)
+
 	return &Nodes{
 		logger: logger,
 		client: client,
@@ -1870,6 +1925,17 @@ func (c *Nodes) Collect(ch chan<- prometheus.Metric) {
 					metric.Labels(nodeStatsResp.ClusterName, node)...,
 				)
 			}
+		}
+
+		for _, attr := range extendedNodeLabels {
+			value, ok := node.Attributes[attr]
+			metric := createAttributeMetric(attr, value, ok)
+			ch <- prometheus.MustNewConstMetric(
+				metric.Desc,
+				metric.Type,
+				metric.Value(node),
+				metric.Labels(nodeStatsResp.ClusterName, node)...,
+			)
 		}
 
 		for _, metric := range c.nodeMetrics {
