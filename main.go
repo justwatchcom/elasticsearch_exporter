@@ -58,6 +58,9 @@ func main() {
 		esExportIndicesSettings = kingpin.Flag("es.indices_settings",
 			"Export stats for settings of all indices of the cluster.").
 			Default("false").Envar("ES_INDICES_SETTINGS").Bool()
+		esExportIndicesMappings = kingpin.Flag("es.indices_mappings",
+			"Export stats for mappings of all indices of the cluster.").
+			Default("false").Envar("ES_INDICES_MAPPINGS").Bool()
 		esExportClusterSettings = kingpin.Flag("es.cluster_settings",
 			"Export stats for cluster settings.").
 			Default("false").Envar("ES_CLUSTER_SETTINGS").Bool()
@@ -148,6 +151,10 @@ func main() {
 
 	if *esExportIndicesSettings {
 		prometheus.MustRegister(collector.NewIndicesSettings(logger, httpClient, esURL))
+	}
+
+	if *esExportIndicesMappings {
+		prometheus.MustRegister(collector.NewIndicesMappings(logger, httpClient, esURL))
 	}
 
 	// create a http server
