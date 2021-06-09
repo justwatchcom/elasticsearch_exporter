@@ -1,4 +1,4 @@
-# Elasticsearch Exporter 
+# Elasticsearch Exporter
 [![CircleCI](https://circleci.com/gh/prometheus-community/elasticsearch_exporter.svg?style=svg)](https://circleci.com/gh/prometheus-community/elasticsearch_exporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/elasticsearch_exporter)](https://goreportcard.com/report/github.com/prometheus-community/elasticsearch_exporter)
 
@@ -60,7 +60,7 @@ elasticsearch_exporter --help
 | web.telemetry-path      | 1.0.2                 | Path under which to expose metrics. | /metrics |
 | version                 | 1.0.2                 | Show version info on stdout and exit. | |
 
-Commandline parameters start with a single `-` for versions less than `1.1.0rc1`. 
+Commandline parameters start with a single `-` for versions less than `1.1.0rc1`.
 For versions greater than `1.1.0rc1`, commandline parameters are specified with `--`. Also, all commandline parameters can be provided as environment variables. The environment variable name is derived from the parameter name
 by replacing `.` and `-` with `_` and upper-casing the parameter name.
 
@@ -71,17 +71,17 @@ ES 7.x supports RBACs. The following security privileges are required for the el
 Setting | Privilege Required | Description
 :---- | :---- | :----
 exporter defaults | `cluster` `monitor` | All cluster read-only operations, like cluster health and state, hot threads, node info, node and cluster stats, and pending cluster tasks. |
-es.cluster_settings | `cluster` `monitor` | 
-es.indices | `indices` `monitor` (per index or `*`) | All actions that are required for monitoring (recovery, segments info, index stats and status) 
-es.indices_settings | `indices` `monitor` (per index or `*`) | 
-es.shards | not sure if `indices` or `cluster` `monitor` or both | 
+es.cluster_settings | `cluster` `monitor` |
+es.indices | `indices` `monitor` (per index or `*`) | All actions that are required for monitoring (recovery, segments info, index stats and status)
+es.indices_settings | `indices` `monitor` (per index or `*`) |
+es.shards | not sure if `indices` or `cluster` `monitor` or both |
 es.snapshots | `cluster:admin/snapshot/status` and `cluster:admin/repository/get` | [ES Forum Post](https://discuss.elastic.co/t/permissions-for-backup-user-with-x-pack/88057)
 
 Further Information
 - [Build in Users](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/built-in-users.html)
 - [Defining Roles](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/defining-roles.html)
 - [Privileges](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/security-privileges.html)
- 
+
 ### Metrics
 
 |Name                                                                   |Type       |Cardinality  |Help
@@ -100,8 +100,10 @@ Further Information
 | elasticsearch_cluster_health_task_max_waiting_in_queue_millis         | gauge     | 1           | Max time in millis that a task is waiting in queue.
 | elasticsearch_cluster_health_relocating_shards                        | gauge     | 1           | The number of shards that are currently moving from one node to another node.
 | elasticsearch_cluster_health_status                                   | gauge     | 3           | Whether all primary and replica shards are allocated.
+| elasticsearch_cluster_health_scrape_duration_seconds                  | gauge     | 0           | Duration spent in ElasticSearch cluster health scrape.
 | elasticsearch_cluster_health_timed_out                                | gauge     | 1           | Number of cluster health checks timed out
 | elasticsearch_cluster_health_unassigned_shards                        | gauge     | 1           | The number of shards that exist in the cluster state, but cannot be found in the cluster itself.
+| elasticsearch_clustersettings_stats_scrape_duration_seconds           | gauge     | 0           | Duration spent in ElasticSearch settings scrape.
 | elasticsearch_filesystem_data_available_bytes                         | gauge     | 1           | Available space on block device in bytes
 | elasticsearch_filesystem_data_free_bytes                              | gauge     | 1           | Free space on block device in bytes
 | elasticsearch_filesystem_data_size_bytes                              | gauge     | 1           | Size of block device in bytes
@@ -110,6 +112,7 @@ Further Information
 | elasticsearch_filesystem_io_stats_device_write_operations_count       | gauge     | 1           | Count of disk write operations
 | elasticsearch_filesystem_io_stats_device_read_size_kilobytes_sum      | gauge     | 1           | Total kilobytes read from disk
 | elasticsearch_filesystem_io_stats_device_write_size_kilobytes_sum     | gauge     | 1           | Total kilobytes written to disk
+| elasticsearch_index_stats_scrape_duration_seconds                     | gauge     | 0           | Duration spent in ElasticSearch index scrape.
 | elasticsearch_indices_docs                                            | gauge     | 1           | Count of documents on this node
 | elasticsearch_indices_docs_deleted                                    | gauge     | 1           | Count of deleted documents on this node
 | elasticsearch_indices_docs_primary                                    | gauge     |             | Count of documents with only primary shards on all nodes
@@ -172,6 +175,7 @@ Further Information
 | elasticsearch_jvm_memory_pool_max_bytes                               | counter   | 3           | JVM memory max by pool
 | elasticsearch_jvm_memory_pool_peak_used_bytes                         | counter   | 3           | JVM memory peak used by pool
 | elasticsearch_jvm_memory_pool_peak_max_bytes                          | counter   | 3           | JVM memory peak max by pool
+| elasticsearch_node_stats_scrape_duration_seconds                      | gauge     | 0           | Duration spent in ElasticSearch nodes scrape.
 | elasticsearch_os_cpu_percent                                          | gauge     | 1           | Percent CPU used by the OS
 | elasticsearch_os_load1                                                | gauge     | 1           | Shortterm load average
 | elasticsearch_os_load5                                                | gauge     | 1           | Midterm load average
@@ -184,6 +188,7 @@ Further Information
 | elasticsearch_process_open_files_count                                | gauge     | 1           | Open file descriptors
 | elasticsearch_snapshot_stats_number_of_snapshots                      | gauge     | 1           | Total number of snapshots
 | elasticsearch_snapshot_stats_oldest_snapshot_timestamp                | gauge     | 1           | Oldest snapshot timestamp
+| elasticsearch_snapshot_stats_scrape_duration_seconds                  | gauge     | 0           | Duration spent in ElasticSearch snapshots scrape.
 | elasticsearch_snapshot_stats_snapshot_start_time_timestamp            | gauge     | 1           | Last snapshot start timestamp
 | elasticsearch_snapshot_stats_snapshot_end_time_timestamp              | gauge     | 1           | Last snapshot end timestamp
 | elasticsearch_snapshot_stats_snapshot_number_of_failures              | gauge     | 1           | Last snapshot number of failures

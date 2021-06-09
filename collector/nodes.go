@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -171,8 +172,10 @@ type Nodes struct {
 	all    bool
 	node   string
 
-	up                              prometheus.Gauge
-	totalScrapes, jsonParseFailures prometheus.Counter
+	up                prometheus.Gauge
+	totalScrapes      prometheus.Counter
+	scrapeDuration    prometheus.Gauge
+	jsonParseFailures prometheus.Counter
 
 	nodeMetrics               []*nodeMetric
 	gcCollectionMetrics       []*gcCollectionMetric
@@ -198,6 +201,10 @@ func NewNodes(logger log.Logger, client *http.Client, url *url.URL, all bool, no
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: prometheus.BuildFQName(namespace, "node_stats", "total_scrapes"),
 			Help: "Current total ElasticSearch node scrapes.",
+		}),
+		scrapeDuration: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: prometheus.BuildFQName(namespace, "node_stats", "scrape_time_seconds_total"),
+			Help: "Duration spent in ElasticSearch nodes scrape.",
 		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: prometheus.BuildFQName(namespace, "node_stats", "json_parse_failures"),
@@ -1808,6 +1815,7 @@ func (c *Nodes) Describe(ch chan<- *prometheus.Desc) {
 		ch <- metric.Desc
 	}
 	ch <- c.up.Desc()
+	ch <- c.scrapeDuration.Desc()
 	ch <- c.totalScrapes.Desc()
 	ch <- c.jsonParseFailures.Desc()
 }
@@ -1858,10 +1866,14 @@ func (c *Nodes) fetchAndDecodeNodeStats() (nodeStatsResponse, error) {
 
 // Collect gets nodes metric values
 func (c *Nodes) Collect(ch chan<- prometheus.Metric) {
+	now := time.Now()
 	c.totalScrapes.Inc()
 	defer func() {
+		_ = level.Debug(c.logger).Log("msg", "nodes scrape took", "seconds", time.Since(now).Seconds())
+		c.scrapeDuration.Set(time.Since(now).Seconds())
 		ch <- c.up
 		ch <- c.totalScrapes
+		ch <- c.scrapeDuration
 		ch <- c.jsonParseFailures
 	}()
 
