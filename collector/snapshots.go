@@ -20,10 +20,13 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sync"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sync/singleflight"
 )
 
 type snapshotMetric struct {
@@ -57,6 +60,13 @@ type Snapshots struct {
 	client *http.Client
 	url    *url.URL
 
+	updateInterval time.Duration
+	lastResponse   map[string]SnapshotStatsResponse
+	lastError      error
+	lastFetchAt    time.Time
+	lock           sync.RWMutex
+	group          singleflight.Group
+
 	up                              prometheus.Gauge
 	totalScrapes, jsonParseFailures prometheus.Counter
 
@@ -65,11 +75,12 @@ type Snapshots struct {
 }
 
 // NewSnapshots defines Snapshots Prometheus metrics
-func NewSnapshots(logger log.Logger, client *http.Client, url *url.URL) *Snapshots {
+func NewSnapshots(logger log.Logger, client *http.Client, url *url.URL, interval time.Duration) *Snapshots {
 	return &Snapshots{
-		logger: logger,
-		client: client,
-		url:    url,
+		logger:         logger,
+		client:         client,
+		url:            url,
+		updateInterval: interval,
 
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: prometheus.BuildFQName(namespace, "snapshot_stats", "up"),
@@ -264,6 +275,15 @@ func (s *Snapshots) getAndParseURL(u *url.URL, data interface{}) error {
 }
 
 func (s *Snapshots) fetchAndDecodeSnapshotsStats() (map[string]SnapshotStatsResponse, error) {
+	resp, err, shared := s.group.Do("snapshots", func() (interface{}, error) {
+		_ = level.Debug(s.logger).Log("msg", "getting snapshots metrics")
+		return s.doFetchAndDecodeSnapshotsStats()
+	})
+	_ = level.Debug(s.logger).Log("msg", "got snapshots metrics", "shared", shared)
+	return resp.(map[string]SnapshotStatsResponse), err
+}
+
+func (s *Snapshots) doFetchAndDecodeSnapshotsStats() (map[string]SnapshotStatsResponse, error) {
 	mssr := make(map[string]SnapshotStatsResponse)
 
 	u := *s.url
@@ -289,6 +309,9 @@ func (s *Snapshots) fetchAndDecodeSnapshotsStats() (map[string]SnapshotStatsResp
 
 // Collect gets Snapshots metric values
 func (s *Snapshots) Collect(ch chan<- prometheus.Metric) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
 	s.totalScrapes.Inc()
 	defer func() {
 		ch <- s.up
@@ -296,20 +319,27 @@ func (s *Snapshots) Collect(ch chan<- prometheus.Metric) {
 		ch <- s.jsonParseFailures
 	}()
 
-	// indices
-	snapshotsStatsResp, err := s.fetchAndDecodeSnapshotsStats()
-	if err != nil {
+	if s.lastFetchAt.Add(s.updateInterval).Before(time.Now()) {
+		go func() {
+			resp, err := s.fetchAndDecodeSnapshotsStats()
+			s.lock.Lock()
+			defer s.lock.Unlock()
+			s.lastResponse, s.lastError = resp, err
+			s.lastFetchAt = time.Now()
+		}()
+	}
+
+	if s.lastError != nil {
 		s.up.Set(0)
 		_ = level.Warn(s.logger).Log(
 			"msg", "failed to fetch and decode snapshot stats",
-			"err", err,
+			"err", s.lastError,
 		)
-		return
 	}
 	s.up.Set(1)
 
 	// Snapshots stats
-	for repositoryName, snapshotStats := range snapshotsStatsResp {
+	for repositoryName, snapshotStats := range s.lastResponse {
 		for _, metric := range s.repositoryMetrics {
 			ch <- prometheus.MustNewConstMetric(
 				metric.Desc,
