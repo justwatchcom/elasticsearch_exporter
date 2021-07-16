@@ -1099,6 +1099,42 @@ func (i *Indices) Collect(ch chan<- prometheus.Metric) {
 	}
 	i.up.Set(1)
 
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "indices", "shards_successful"),
+			"Count of succesful shards",
+			[]string{"cluster"},
+			nil,
+		),
+		prometheus.GaugeValue,
+		float64(indexStatsResp.Shards.Successful),
+		i.lastClusterInfo.ClusterName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "indices", "shards_failed"),
+			"Count of failed shards",
+			[]string{"cluster"},
+			nil,
+		),
+		prometheus.GaugeValue,
+		float64(indexStatsResp.Shards.Failed),
+		i.lastClusterInfo.ClusterName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "indices", "shards_total"),
+			"Total count of shards",
+			[]string{"cluster"},
+			nil,
+		),
+		prometheus.GaugeValue,
+		float64(indexStatsResp.Shards.Total),
+		i.lastClusterInfo.ClusterName,
+	)
+
 	// Index stats
 	for indexName, indexStats := range indexStatsResp.Indices {
 		for _, metric := range i.indexMetrics {
