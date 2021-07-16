@@ -57,6 +57,8 @@ elasticsearch_exporter --help
 | es.client-cert          | 1.0.2                 | Path to PEM file that contains the corresponding cert for the private key to connect to Elasticsearch. | |
 | es.clusterinfo.interval | 1.1.0rc1              |  Cluster info update interval for the cluster label | 5m |
 | es.ssl-skip-verify      | 1.0.4rc1              | Skip SSL verification when connecting to Elasticsearch. | false |
+| es.username             | 1.2.0                 | Username to use for connecting to Elasticsearch | false |
+| es.password             | 1.2.0                 | Password to use for connecting to Elasticsearch | false |
 | web.listen-address      | 1.0.2                 | Address to listen on for web interface and telemetry. | :9114 |
 | web.telemetry-path      | 1.0.2                 | Path under which to expose metrics. | /metrics |
 | version                 | 1.0.2                 | Show version info on stdout and exit. | |
@@ -66,6 +68,9 @@ For versions greater than `1.1.0rc1`, commandline parameters are specified with 
 by replacing `.` and `-` with `_` and upper-casing the parameter name.
 
 #### Elasticsearch 7.x security privileges
+
+Username and password can be passed either directly in the URI or through the arguments `es.username` and `es.password`.
+Specifying those two arguments will override authentication passed in the URI (if any).
 
 ES 7.x supports RBACs. The following security privileges are required for the elasticsearch_exporter.
 

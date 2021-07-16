@@ -85,6 +85,12 @@ func main() {
 		esInsecureSkipVerify = kingpin.Flag("es.ssl-skip-verify",
 			"Skip SSL verification when connecting to Elasticsearch.").
 			Default("false").Envar("ES_SSL_SKIP_VERIFY").Bool()
+		esUsername = kingpin.Flag("es.username",
+			"Username to use for ES basic auth").
+			Default("").Envar("ES_USERNAME").String()
+		esPassword = kingpin.Flag("es.password",
+			"Password to use for ES basic auth").
+			Default("").Envar("ES_PASSWORD").String()
 		logLevel = kingpin.Flag("log.level",
 			"Sets the loglevel. Valid levels are debug, info, warn, error").
 			Default("info").Envar("LOG_LEVEL").String()
@@ -109,6 +115,9 @@ func main() {
 			"err", err,
 		)
 		os.Exit(1)
+	}
+	if *esUsername != "" && *esPassword != "" {
+		esURL.User = url.UserPassword(*esUsername, *esPassword)
 	}
 
 	// returns nil if not provided and falls back to simple TCP.
