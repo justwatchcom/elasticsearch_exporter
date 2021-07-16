@@ -35,10 +35,19 @@ type ClusterSettings struct {
 	url    *url.URL
 
 	up                              prometheus.Gauge
-	shardAllocationEnabled          prometheus.Gauge
-	maxShardsPerNode                prometheus.Gauge
 	totalScrapes, jsonParseFailures prometheus.Counter
+	metrics                         []*clusterSettingsMetric
 }
+
+type clusterSettingsMetric struct {
+	Type  prometheus.ValueType
+	Desc  *prometheus.Desc
+	Value func(clusterSettings ClusterSettingsResponse) (float64, error)
+}
+
+var (
+	defaultClusterSettingsLabels = []string{"cluster"}
+)
 
 // NewClusterSettings defines Cluster Settings Prometheus metrics
 func NewClusterSettings(logger log.Logger, client *http.Client, url *url.URL) *ClusterSettings {
@@ -55,18 +64,41 @@ func NewClusterSettings(logger log.Logger, client *http.Client, url *url.URL) *C
 			Name: prometheus.BuildFQName(namespace, "clustersettings_stats", "total_scrapes"),
 			Help: "Current total ElasticSearch cluster settings scrapes.",
 		}),
-		shardAllocationEnabled: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(namespace, "clustersettings_stats", "shard_allocation_enabled"),
-			Help: "Current mode of cluster wide shard routing allocation settings.",
-		}),
-		maxShardsPerNode: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(namespace, "clustersettings_stats", "max_shards_per_node"),
-			Help: "Current maximum number of shards per node setting.",
-		}),
 		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
 			Name: prometheus.BuildFQName(namespace, "clustersettings_stats", "json_parse_failures"),
 			Help: "Number of errors while parsing JSON.",
 		}),
+		metrics: []*clusterSettingsMetric{
+			{
+				Type: prometheus.GaugeValue,
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(namespace, "clustersettings_stats", "max_shards_per_node"),
+					"Current maximum number of shards per node setting.",
+					defaultClusterSettingsLabels, nil,
+				),
+				Value: func(csr ClusterSettingsResponse) (float64, error) {
+					maxShardsPerNode, err := strconv.ParseInt(csr.Cluster.MaxShardsPerNode, 10, 64)
+					return float64(maxShardsPerNode), err
+				},
+			},
+			{
+				Type: prometheus.GaugeValue,
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(namespace, "clustersettings_stats", "shard_allocation_enabled"),
+					"Current mode of cluster wide shard routing allocation settings.",
+					defaultClusterSettingsLabels, nil,
+				),
+				Value: func(csr ClusterSettingsResponse) (float64, error) {
+					shardAllocationMap := map[string]int{
+						"all":           0,
+						"primaries":     1,
+						"new_primaries": 2,
+						"none":          3,
+					}
+					return float64(shardAllocationMap[csr.Cluster.Routing.Allocation.Enabled]), nil
+				},
+			},
+		},
 	}
 }
 
@@ -74,9 +106,11 @@ func NewClusterSettings(logger log.Logger, client *http.Client, url *url.URL) *C
 func (cs *ClusterSettings) Describe(ch chan<- *prometheus.Desc) {
 	ch <- cs.up.Desc()
 	ch <- cs.totalScrapes.Desc()
-	ch <- cs.shardAllocationEnabled.Desc()
-	ch <- cs.maxShardsPerNode.Desc()
 	ch <- cs.jsonParseFailures.Desc()
+
+	for _, metric := range cs.metrics {
+		ch <- metric.Desc
+	}
 }
 
 func (cs *ClusterSettings) getAndParseURL(u *url.URL, data interface{}) error {
@@ -149,13 +183,10 @@ func (cs *ClusterSettings) Collect(ch chan<- prometheus.Metric) {
 		ch <- cs.up
 		ch <- cs.totalScrapes
 		ch <- cs.jsonParseFailures
-		ch <- cs.shardAllocationEnabled
-		ch <- cs.maxShardsPerNode
 	}()
 
 	csr, err := cs.fetchAndDecodeClusterSettingsStats()
 	if err != nil {
-		cs.shardAllocationEnabled.Set(0)
 		cs.up.Set(0)
 		_ = level.Warn(cs.logger).Log(
 			"msg", "failed to fetch and decode cluster settings stats",
@@ -165,17 +196,22 @@ func (cs *ClusterSettings) Collect(ch chan<- prometheus.Metric) {
 	}
 	cs.up.Set(1)
 
-	shardAllocationMap := map[string]int{
-		"all":           0,
-		"primaries":     1,
-		"new_primaries": 2,
-		"none":          3,
+	for _, metric := range cs.metrics {
+		theValue, err := metric.Value(csr)
+
+		if err != nil {
+			_ = level.Warn(cs.logger).Log(
+				"msg", "error in getting metric value",
+				"err", err,
+			)
+		} else {
+			ch <- prometheus.MustNewConstMetric(
+				metric.Desc,
+				metric.Type,
+				theValue,
+				csr.Cluster.Name,
+			)
+		}
 	}
 
-	cs.shardAllocationEnabled.Set(float64(shardAllocationMap[csr.Cluster.Routing.Allocation.Enabled]))
-
-	maxShardsPerNode, err := strconv.ParseInt(csr.Cluster.MaxShardsPerNode, 10, 64)
-	if err == nil {
-		cs.maxShardsPerNode.Set(float64(maxShardsPerNode))
-	}
 }
