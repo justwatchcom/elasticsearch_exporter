@@ -18,6 +18,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/go-kit/kit/log"
@@ -69,5 +71,38 @@ func TestClusterHealth(t *testing.T) {
 				t.Errorf("Wrong task max waiting time in millis")
 			}
 		}
+	}
+}
+
+func Test_parseClusterHealth(t *testing.T) {
+	desired := clusterHealthResponse{
+		ClusterName: "elasticsearch",
+		Status:      "yellow",
+
+		NumberOfNodes:               1,
+		NumberOfDataNodes:           1,
+		ActivePrimaryShards:         30,
+		ActiveShards:                30,
+		UnassignedShards:            30,
+		TaskMaxWaitingInQueueMillis: 12,
+		ActiveShardsPercentAsNumber: 50,
+	}
+	for _, ver := range testElasticsearchVersions {
+		t.Run(fmt.Sprintf("version %s", ver), func(t *testing.T) {
+			file, err := os.Open(fmt.Sprintf("../fixtures/clusterhealth/%s.json", ver))
+			if err != nil {
+				t.Fatalf("failed to open fixture file: %v", err)
+			}
+			defer file.Close()
+
+			got, err := parseClusterHealth(file)
+			if err != nil {
+				t.Errorf("parseClusterHealth() error = %v", err)
+				return
+			}
+			if !reflect.DeepEqual(got, desired) {
+				t.Errorf("parseClusterHealth() = %v, want %v", got, desired)
+			}
+		})
 	}
 }

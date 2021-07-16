@@ -16,6 +16,7 @@ package collector
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -54,9 +55,6 @@ type ClusterHealth struct {
 	client *http.Client
 	url    *url.URL
 
-	up                              prometheus.Gauge
-	totalScrapes, jsonParseFailures prometheus.Counter
-
 	metrics      []*clusterHealthMetric
 	statusMetric *clusterHealthStatusMetric
 }
@@ -69,19 +67,6 @@ func NewClusterHealth(logger log.Logger, client *http.Client, url *url.URL) *Clu
 		logger: logger,
 		client: client,
 		url:    url,
-
-		up: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: prometheus.BuildFQName(namespace, subsystem, "up"),
-			Help: "Was the last scrape of the ElasticSearch cluster health endpoint successful.",
-		}),
-		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(namespace, subsystem, "total_scrapes"),
-			Help: "Current total ElasticSearch cluster health scrapes.",
-		}),
-		jsonParseFailures: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: prometheus.BuildFQName(namespace, subsystem, "json_parse_failures"),
-			Help: "Number of errors while parsing JSON.",
-		}),
 
 		metrics: []*clusterHealthMetric{
 			{
@@ -229,10 +214,18 @@ func (c *ClusterHealth) Describe(ch chan<- *prometheus.Desc) {
 		ch <- metric.Desc
 	}
 	ch <- c.statusMetric.Desc
+}
 
-	ch <- c.up.Desc()
-	ch <- c.totalScrapes.Desc()
-	ch <- c.jsonParseFailures.Desc()
+func parseClusterHealth(r io.Reader) (clusterHealthResponse, error) {
+	chr := clusterHealthResponse{}
+
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return chr, err
+	}
+
+	err = json.Unmarshal(b, &chr)
+	return chr, err
 }
 
 func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, error) {
@@ -260,40 +253,48 @@ func (c *ClusterHealth) fetchAndDecodeClusterHealth() (clusterHealthResponse, er
 		return chr, fmt.Errorf("HTTP Request failed with code %d", res.StatusCode)
 	}
 
-	bts, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		c.jsonParseFailures.Inc()
-		return chr, err
-	}
-
-	if err := json.Unmarshal(bts, &chr); err != nil {
-		c.jsonParseFailures.Inc()
-		return chr, err
-	}
+	chr, err = parseClusterHealth(res.Body)
 
 	return chr, nil
 }
 
-// Collect collects ClusterHealth metrics.
-func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
-	var err error
-	c.totalScrapes.Inc()
-	defer func() {
-		ch <- c.up
-		ch <- c.totalScrapes
-		ch <- c.jsonParseFailures
-	}()
-
+func (c *ClusterHealth) Update(ch chan<- prometheus.Metric) error {
 	clusterHealthResp, err := c.fetchAndDecodeClusterHealth()
 	if err != nil {
-		c.up.Set(0)
 		_ = level.Warn(c.logger).Log(
 			"msg", "failed to fetch and decode cluster health",
 			"err", err,
 		)
+		return err
+	}
+
+	for _, metric := range c.metrics {
+		ch <- prometheus.MustNewConstMetric(
+			metric.Desc,
+			metric.Type,
+			metric.Value(clusterHealthResp),
+			clusterHealthResp.ClusterName,
+		)
+	}
+
+	for _, color := range colors {
+		ch <- prometheus.MustNewConstMetric(
+			c.statusMetric.Desc,
+			c.statusMetric.Type,
+			c.statusMetric.Value(clusterHealthResp, color),
+			clusterHealthResp.ClusterName, color,
+		)
+	}
+
+	return nil
+}
+
+// Collect collects ClusterHealth metrics.
+func (c *ClusterHealth) Collect(ch chan<- prometheus.Metric) {
+	clusterHealthResp, err := c.fetchAndDecodeClusterHealth()
+	if err != nil {
 		return
 	}
-	c.up.Set(1)
 
 	for _, metric := range c.metrics {
 		ch <- prometheus.MustNewConstMetric(
