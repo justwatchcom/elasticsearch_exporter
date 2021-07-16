@@ -614,6 +614,18 @@ func NewNodes(logger log.Logger, client *http.Client, url *url.URL, all bool, no
 				Labels: defaultNodeLabelValues,
 			},
 			{
+				Type: prometheus.GaugeValue,
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(namespace, "indices", "search_open_contexts"),
+					"Total number of open search contexts",
+					defaultNodeLabels, nil,
+				),
+				Value: func(node NodeStatsNodeResponse) float64 {
+					return float64(node.Indices.Search.OpenContexts)
+				},
+				Labels: defaultNodeLabelValues,
+			},
+			{
 				Type: prometheus.CounterValue,
 				Desc: prometheus.NewDesc(
 					prometheus.BuildFQName(namespace, "indices", "search_query_time_seconds"),

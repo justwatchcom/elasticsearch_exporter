@@ -232,7 +232,7 @@ type NodeStatsIndicesGetResponse struct {
 
 // NodeStatsIndicesSearchResponse defines node stats search information structure for indices
 type NodeStatsIndicesSearchResponse struct {
-	OpenContext  int64 `json:"open_contexts"`
+	OpenContexts  int64 `json:"open_contexts"`
 	QueryTotal   int64 `json:"query_total"`
 	QueryTime    int64 `json:"query_time_in_millis"`
 	QueryCurrent int64 `json:"query_current"`
