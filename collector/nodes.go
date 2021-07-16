@@ -1194,6 +1194,20 @@ func NewNodes(logger log.Logger, client *http.Client, url *url.URL, all bool, no
 					return append(defaultNodeLabelValues(cluster, node), "young")
 				},
 			},
+                        {
+                                Type: prometheus.GaugeValue,
+                                Desc: prometheus.NewDesc(
+                                        prometheus.BuildFQName(namespace, "jvm_memory", "used_percent"),
+                                        "percent of JVM memory used",
+                                        append(defaultNodeLabels, "area"), nil,
+                                ),
+                                Value: func(node NodeStatsNodeResponse) float64 {
+                                        return float64(node.JVM.Mem.HeapPercent)
+                                },
+                                Labels: func(cluster string, node NodeStatsNodeResponse) []string {
+                                        return append(defaultNodeLabelValues(cluster, node), "heap")
+                                },
+                        },
 			{
 				Type: prometheus.CounterValue,
 				Desc: prometheus.NewDesc(
