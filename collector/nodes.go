@@ -26,7 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func getRoles(node NodeStatsNodeResponse) map[string]bool {
+func getRoles(node RoleDetailer) map[string]bool {
 	// default settings (2.x) and map, which roles to consider
 	roles := map[string]bool{
 		"master": false,
@@ -35,8 +35,9 @@ func getRoles(node NodeStatsNodeResponse) map[string]bool {
 		"client": true,
 	}
 	// assumption: a 5.x node has at least one role, otherwise it's a 1.7 or 2.x node
-	if len(node.Roles) > 0 {
-		for _, role := range node.Roles {
+	// XXX: false, can be a coordinator node, which has no roles.
+	if len(node.GetRoles()) > 0 {
+		for _, role := range node.GetRoles() {
 			// set every absent role to false
 			if _, ok := roles[role]; !ok {
 				roles[role] = false
@@ -46,7 +47,7 @@ func getRoles(node NodeStatsNodeResponse) map[string]bool {
 			}
 		}
 	} else {
-		for role, setting := range node.Attributes {
+		for role, setting := range node.GetAttributes() {
 			if _, ok := roles[role]; ok {
 				if setting == "false" {
 					roles[role] = false
@@ -56,7 +57,7 @@ func getRoles(node NodeStatsNodeResponse) map[string]bool {
 			}
 		}
 	}
-	if len(node.HTTP) == 0 {
+	if !node.IsClient() {
 		roles["client"] = false
 	}
 	return roles

@@ -15,11 +15,55 @@ package collector
 
 import "encoding/json"
 
+// RoleDetailer provides details about the roles of a node
+type RoleDetailer interface {
+	GetRoles() []string
+	GetAttributes() map[string]string
+	IsClient() bool
+}
+
+type nodeHTTPStatsResponse struct {
+	ClusterName string                       `json:"cluster_name"`
+	Nodes       map[string]NodeHTTPStatsNode `json:"nodes"`
+}
+
+// NodeHTTPStatsNodeDetails http connections details for a given node
+type NodeHTTPStatsNodeDetails struct {
+	CurrentOpen int `json:"current_open"`
+	TotalOpened int `json:"total_opened"`
+}
+
+var _ RoleDetailer = NodeHTTPStatsNode{}
+
+// NodeHTTPStatsNode node http stats
+type NodeHTTPStatsNode struct {
+	Name             string                   `json:"name"`
+	TransportAddress string                   `json:"transport_address"`
+	Host             string                   `json:"host"`
+	IP               string                   `json:"ip"`
+	Roles            []string                 `json:"roles"`
+	HTTP             NodeHTTPStatsNodeDetails `json:"http"`
+}
+
+func (n NodeHTTPStatsNode) GetRoles() []string {
+	return n.Roles
+}
+
+func (n NodeHTTPStatsNode) GetAttributes() map[string]string {
+	return map[string]string{}
+}
+
+func (n NodeHTTPStatsNode) IsClient() bool {
+	return false
+}
+
 // nodeStatsResponse is a representation of a Elasticsearch Node Stats
 type nodeStatsResponse struct {
 	ClusterName string `json:"cluster_name"`
 	Nodes       map[string]NodeStatsNodeResponse
 }
+
+var _ RoleDetailer = NodeStatsNodeResponse{}
 
 // NodeStatsNodeResponse defines node stats information structure for nodes
 type NodeStatsNodeResponse struct {
@@ -40,6 +84,18 @@ type NodeStatsNodeResponse struct {
 	HTTP             map[string]interface{}                     `json:"http"`
 	Transport        NodeStatsTransportResponse                 `json:"transport"`
 	Process          NodeStatsProcessResponse                   `json:"process"`
+}
+
+func (n NodeStatsNodeResponse) GetRoles() []string {
+	return n.Roles
+}
+
+func (n NodeStatsNodeResponse) GetAttributes() map[string]string {
+	return n.Attributes
+}
+
+func (n NodeStatsNodeResponse) IsClient() bool {
+	return len(n.HTTP) != 0
 }
 
 // NodeStatsBreakersResponse is a representation of a statistics about the field data circuit breaker

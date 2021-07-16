@@ -52,6 +52,9 @@ func main() {
 		esNode = kingpin.Flag("es.node",
 			"Node's name of which metrics should be exposed.").
 			Default("_local").Envar("ES_NODE").String()
+		esExportNodesHTTP = kingpin.Flag("es.nodehttp",
+			"Export stats for node HTTP in the cluster.").
+			Default("false").Envar("ES_NODE_HTTP").Bool()
 		esExportIndices = kingpin.Flag("es.indices",
 			"Export stats for indices in the cluster.").
 			Default("false").Envar("ES_INDICES").Bool()
@@ -131,6 +134,10 @@ func main() {
 
 	prometheus.MustRegister(collector.NewClusterHealth(logger, httpClient, esURL))
 	prometheus.MustRegister(collector.NewNodes(logger, httpClient, esURL, *esAllNodes, *esNode))
+
+	if *esExportNodesHTTP {
+		prometheus.MustRegister(collector.NewNodesHTTP(logger, httpClient, esURL))
+	}
 
 	if *esExportIndices || *esExportShards {
 		iC := collector.NewIndices(logger, httpClient, esURL, *esExportShards)
