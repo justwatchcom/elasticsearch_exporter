@@ -70,6 +70,9 @@ func main() {
 		esExportSnapshots = kingpin.Flag("es.snapshots",
 			"Export stats for the cluster snapshots.").
 			Default("false").Envar("ES_SNAPSHOTS").Bool()
+		esExportCCRStats = kingpin.Flag("es.ccr.stats",
+			"Export CCR stats in the cluster").
+			Default("false").Envar("ES_SNAPSHOTS").Bool()
 		esClusterInfoInterval = kingpin.Flag("es.clusterinfo.interval",
 			"Cluster info update interval for the cluster label").
 			Default("5m").Envar("ES_CLUSTERINFO_INTERVAL").Duration()
@@ -143,6 +146,10 @@ func main() {
 
 	if *esExportSnapshots {
 		prometheus.MustRegister(collector.NewSnapshots(logger, httpClient, esURL))
+	}
+
+	if *esExportCCRStats {
+		prometheus.MustRegister(collector.NewCCRStats(logger, httpClient, esURL))
 	}
 
 	if *esExportClusterSettings {

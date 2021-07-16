@@ -1,4 +1,5 @@
 # Elasticsearch Exporter
+
 [![CircleCI](https://circleci.com/gh/prometheus-community/elasticsearch_exporter.svg?style=svg)](https://circleci.com/gh/prometheus-community/elasticsearch_exporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/prometheus-community/elasticsearch_exporter)](https://goreportcard.com/report/github.com/prometheus-community/elasticsearch_exporter)
 
@@ -20,23 +21,29 @@ Example `docker-compose.yml`:
 
 ```yaml
 elasticsearch_exporter:
-    image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
-    command:
-     - '--es.uri=http://elasticsearch:9200'
-    restart: always
-    ports:
+  image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
+  command:
+    - '--es.uri=http://elasticsearch:9200'
+  restart: always
+  ports:
     - "127.0.0.1:9114:9114"
 ```
 
 #### Kubernetes
 
-You can find a helm chart in the stable charts repository at https://github.com/kubernetes/charts/tree/master/stable/elasticsearch-exporter.
+You can find a helm chart in the stable charts repository
+at https://github.com/kubernetes/charts/tree/master/stable/elasticsearch-exporter.
 
 ### Configuration
 
-**NOTE:** The exporter fetches information from an ElasticSearch cluster on every scrape, therefore having a too short scrape interval can impose load on ES master nodes, particularly if you run with `--es.all` and `--es.indices`. We suggest you measure how long fetching `/_nodes/stats` and `/_all/_stats` takes for your ES cluster to determine whether your scraping interval is too short. As a last resort, you can scrape this exporter using a dedicated job with its own scraping interval.
+**NOTE:** The exporter fetches information from an ElasticSearch cluster on every scrape, therefore having a too short
+scrape interval can impose load on ES master nodes, particularly if you run with `--es.all` and `--es.indices`. We
+suggest you measure how long fetching `/_nodes/stats` and `/_all/_stats` takes for your ES cluster to determine whether
+your scraping interval is too short. As a last resort, you can scrape this exporter using a dedicated job with its own
+scraping interval.
 
 Below is the command line options summary:
+
 ```bash
 elasticsearch_exporter --help
 ```
@@ -61,9 +68,10 @@ elasticsearch_exporter --help
 | web.telemetry-path      | 1.0.2                 | Path under which to expose metrics. | /metrics |
 | version                 | 1.0.2                 | Show version info on stdout and exit. | |
 
-Commandline parameters start with a single `-` for versions less than `1.1.0rc1`.
-For versions greater than `1.1.0rc1`, commandline parameters are specified with `--`. Also, all commandline parameters can be provided as environment variables. The environment variable name is derived from the parameter name
-by replacing `.` and `-` with `_` and upper-casing the parameter name.
+Commandline parameters start with a single `-` for versions less than `1.1.0rc1`. For versions greater than `1.1.0rc1`,
+commandline parameters are specified with `--`. Also, all commandline parameters can be provided as environment
+variables. The environment variable name is derived from the parameter name by replacing `.` and `-` with `_` and
+upper-casing the parameter name.
 
 #### Elasticsearch 7.x security privileges
 
@@ -79,6 +87,7 @@ es.shards | not sure if `indices` or `cluster` `monitor` or both |
 es.snapshots | `cluster:admin/snapshot/status` and `cluster:admin/repository/get` | [ES Forum Post](https://discuss.elastic.co/t/permissions-for-backup-user-with-x-pack/88057)
 
 Further Information
+
 - [Build in Users](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/built-in-users.html)
 - [Defining Roles](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/defining-roles.html)
 - [Privileges](https://www.elastic.co/guide/en/elastic-stack-overview/7.3/security-privileges.html)
@@ -210,13 +219,40 @@ Further Information
 | elasticsearch_clusterinfo_last_retrieval_success_ts                   | gauge     | 1           | Timestamp of the last successful cluster info retrieval
 | elasticsearch_clusterinfo_up                                          | gauge     | 1           | Up metric for the cluster info collector
 | elasticsearch_clusterinfo_version_info                                | gauge     | 6           | Constant metric with ES version information as labels
+| elasticsearch_ccr_stats_leader_global_checkpoint                      | counter   |             | The current global checkpoint on the leader
+| elasticsearch_ccr_stats_leader_max_seq_no                             | counter   |             | The current maximum sequence number on the leader known to the follower task
+| elasticsearch_ccr_stats_follower_global_checkpoint                    | counter   |             | The current global checkpoint on the follower
+| elasticsearch_ccr_stats_follower_max_seq_no                           | counter   |             | The current maximum sequence number on the follower
+| elasticsearch_ccr_stats_last_requested_seq_no                         | counter   |             | The starting sequence number of the last batch of operations requested from the leader
+| elasticsearch_ccr_stats_outstanding_read_requests                     | counter   |             | The number of active read requests from the follower
+| elasticsearch_ccr_stats_outstanding_write_requests                    | counter   |             | The number of active bulk write requests on the follower
+| elasticsearch_ccr_stats_write_buffer_operation_count                  | counter   |             | The number of write operations queued on the follower
+| elasticsearch_ccr_stats_write_buffer_size_in_bytes                    | gauge     |             | The total number of bytes of operations currently queued for writing
+| elasticsearch_ccr_stats_follower_mapping_version                      | gauge     |             | The mapping version the follower is synced up to
+| elasticsearch_ccr_stats_follower_settings_version                     | gauge     |             | The index settings version the follower is synced up to
+| elasticsearch_ccr_stats_follower_aliases_version                      | gauge     |             | The index aliases version the follower is synced up to
+| elasticsearch_ccr_stats_total_read_time_millis                        | gauge     |             | The total time reads were outstanding, measured from the time a read was sent to the leader to the time a reply was returned to the follower
+| elasticsearch_ccr_stats_total_read_remote_exec_time_millis            | gauge     |             | The total time reads spent executing on the remote cluster
+| elasticsearch_ccr_stats_successful_read_requests                      | counter   |             | The number of successful fetches
+| elasticsearch_ccr_stats_failed_read_requests                          | counter   |             | The number of failed reads
+| elasticsearch_ccr_stats_operations_read                               | counter   |             | The total number of operations read from the leader
+| elasticsearch_ccr_stats_bytes_read                                    | counter   |             | The total of transferred bytes read from the leader. This is only an estimate and does not account for compression if enabled
+| elasticsearch_ccr_stats_total_write_time_millis                       | gauge     |             | The total time spent writing on the follower
+| elasticsearch_ccr_stats_successful_write_requests                     | counter   |             | The number of bulk write requests executed on the follower
+| elasticsearch_ccr_stats_failed_write_requests                         | counter   |             | The number of failed bulk write requests executed on the follower
+| elasticsearch_ccr_stats_operations_written                            | counter   |             | The number of operations written on the follower
+| elasticsearch_ccr_stats_time_since_last_read_millis                   | gauge     |             | The number of milliseconds since a read request was sent to the leader
 
 ### Alerts & Recording Rules
 
-We provide examples for [Prometheus](http://prometheus.io) [alerts and recording rules](examples/prometheus/elasticsearch.rules) as well as an [Grafana](http://www.grafana.org) [Dashboard](examples/grafana/dashboard.json) and a [Kubernetes](http://kubernetes.io) [Deployment](examples/kubernetes/deployment.yml).
+We provide examples
+for [Prometheus](http://prometheus.io) [alerts and recording rules](examples/prometheus/elasticsearch.rules) as well as
+an [Grafana](http://www.grafana.org) [Dashboard](examples/grafana/dashboard.json) and
+a [Kubernetes](http://kubernetes.io) [Deployment](examples/kubernetes/deployment.yml).
 
-The example dashboard needs the [node_exporter](https://github.com/prometheus/node_exporter) installed. In order to select the nodes that belong to the ElasticSearch cluster, we rely on a label `cluster`.
-Depending on your setup, it can derived from the platform metadata:
+The example dashboard needs the [node_exporter](https://github.com/prometheus/node_exporter) installed. In order to
+select the nodes that belong to the ElasticSearch cluster, we rely on a label `cluster`. Depending on your setup, it can
+derived from the platform metadata:
 
 For example on [GCE](https://cloud.google.com)
 
@@ -229,17 +265,18 @@ For example on [GCE](https://cloud.google.com)
   action: replace
 ```
 
-Please refer to the [Prometheus SD documentation](https://prometheus.io/docs/operating/configuration/) to see which metadata labels can be used to create the `cluster` label.
+Please refer to the [Prometheus SD documentation](https://prometheus.io/docs/operating/configuration/) to see which
+metadata labels can be used to create the `cluster` label.
 
 ## Credit & License
 
 `elasticsearch_exporter` is maintained by the [Prometheus Community](https://www.prometheus.io/community/).
 
-`elasticsearch_exporter` was then maintained by the nice folks from [JustWatch](https://www.justwatch.com/).
-Then transferred this repository to the Prometheus Community in May 2021.
+`elasticsearch_exporter` was then maintained by the nice folks from [JustWatch](https://www.justwatch.com/). Then
+transferred this repository to the Prometheus Community in May 2021.
 
-This package was originally created and maintained by [Eric Richardson](https://github.com/ewr),
-who transferred this repository to us in January 2017.
+This package was originally created and maintained by [Eric Richardson](https://github.com/ewr), who transferred this
+repository to us in January 2017.
 
 Maintainers of this repository:
 
@@ -249,8 +286,7 @@ Please refer to the Git commit log for a complete list of contributors.
 
 ## Contributing
 
-We welcome any contributions. Please fork the project on GitHub and open
-Pull Requests for any proposed changes.
+We welcome any contributions. Please fork the project on GitHub and open Pull Requests for any proposed changes.
 
-Please note that we will not merge any changes that encourage insecure
-behaviour. If in doubt please open an Issue first to discuss your proposal.
+Please note that we will not merge any changes that encourage insecure behaviour. If in doubt please open an Issue first
+to discuss your proposal.
